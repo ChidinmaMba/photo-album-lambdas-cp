@@ -1,0 +1,77 @@
+import json
+import boto3
+import uuid
+import requests
+import base64
+
+lex_client = boto3.client('lexv2-runtime')
+
+open_search_host = 'https://search-photos-np4jmhtad6ambh7gd7tokolnee.us-east-1.es.amazonaws.com/photos/_search'
+s3_client = boto3.client('s3')
+S3_BUCKET_NAME = "b2-mba"
+
+def lambda_handler(event, context):
+    # TODO implement
+    msg_from_user = event["queryStringParameters"]["q"]
+    print("msg_from_user", msg_from_user)
+
+    response = lex_client.recognize_text(
+        botId='VFEURNGQPH', # MODIFY HERE
+        botAliasId='YY7ZBGDONL', # MODIFY HERE
+        localeId='en_US',
+        sessionId=str(uuid.uuid4()),
+        text=msg_from_user
+    )
+    # print("response", response['sessionState']['intent']['slots']['label1']['value']['resolvedValues'], response['sessionState']['intent']['slots']['label1']['value']['interpretedValue'])
+    labels_to_search = list()
+    
+    label1 = response["sessionState"]['intent']['slots']['label_one']
+    label2 = response["sessionState"]['intent']['slots']['label_two']
+    if label1 is not None:
+        if len(label1['value']['resolvedValues']) > 0:
+            labels_to_search.append(label1['value']['resolvedValues'][0])
+            print(label1['value']['resolvedValues'][0])
+    if label2 is not None:
+        if len(label2['value']['resolvedValues']) > 0:
+            labels_to_search.append(label2['value']['resolvedValues'][0])
+            print(label2['value']['resolvedValues'][0])
+    res_photos = []
+    if len(labels_to_search) > 0:      
+        params = {
+            'q': labels_to_search,
+            'pretty': 'true',
+        }
+        response = requests.get(open_search_host, params=params, auth=('chichi', 'Chichi050602?@'))
+        response = json.loads(response.text)
+        if response["hits"]["total"]["value"] >= 0:
+            for res in response["hits"]["hits"]:
+                file_name=res["_source"]["objectKey"]
+                url = boto3.client('s3').generate_presigned_url(
+                    ClientMethod='get_object', 
+                    Params={'Bucket': S3_BUCKET_NAME, 'Key': file_name},
+                    ExpiresIn=3600)
+                res_photos.append(
+                    {
+                        "url": url,
+                        "labels": res["_source"]["labels"]
+                    }
+                )
+    
+    # 'Access-Control-Allow-Methods': '*',
+    # 'Access-Control-Allow-Headers': '*',
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
+        'body': json.dumps({
+            "results": res_photos
+        })
+    }
+    
+    
+    
+        
