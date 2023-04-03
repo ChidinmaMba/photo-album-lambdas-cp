@@ -1,0 +1,110 @@
+import json
+import boto3
+import requests
+
+rekog_client = boto3.client('rekognition')
+s3_client = boto3.client('s3')
+
+open_search_host = 'https://search-photos-np4jmhtad6ambh7gd7tokolnee.us-east-1.es.amazonaws.com/photos/_doc/1'
+headers = {
+    'Content-Type': 'application/json',
+}
+
+def lambda_handler(event, context):
+    # TODO implement
+    print(json.dumps(event))
+    if event["Records"][0]["eventName"] == "ObjectCreated:Put":
+        photo = event["Records"][0]["s3"]["object"]["key"]
+        bucket = event["Records"][0]["s3"]["bucket"]["name"]
+        labels = detect_labels(photo, bucket)
+        if labels is not None:
+            response = s3_client.head_object(
+                Bucket=bucket,
+                Key=photo,
+            )
+            print("head_object response", response)
+            
+            # append data to opensearch
+            json_data = {
+                "objectKey": photo,
+                "bucket": bucket,
+                "createdTimestamp": response['ResponseMetadata']['HTTPHeaders']['last-modified'],
+                "labels": labels
+            }
+            print("json_data", json_data)
+            opensearch_response = requests.put(
+                open_search_host,
+                headers=headers,
+                json=json_data,
+                auth=('chichi', 'Chichi050602?@'),
+            )
+            print("opensearch_response", opensearch_response)
+    print("Labels detected: " + str(len(labels)))
+    return {
+        'statusCode': 200,
+        'body': json.dumps("Labels detected: " + str(len(labels)))
+    }
+    
+def detect_labels(photo, bucket):
+     response = rekog_client.detect_labels(Image={'S3Object':{'Bucket':bucket,'Name':photo}},
+     MaxLabels=10,
+     # Uncomment to use image properties and filtration settings
+     #Features=["GENERAL_LABELS", "IMAGE_PROPERTIES"],
+     #Settings={"GeneralLabels": {"LabelInclusionFilters":["Cat"]},
+     # "ImageProperties": {"MaxDominantColors":10}}
+     )
+     
+     print("response", response)
+     print('Detected labels for ' + photo)
+     print()
+     labels = list()
+     for label in response['Labels']:
+         labels.append(label['Name'])
+         print("Label: " + label['Name'])
+         print("Confidence: " + str(label['Confidence']))
+         print("Instances:")
+
+         for instance in label['Instances']:
+             print(" Bounding box")
+             print(" Top: " + str(instance['BoundingBox']['Top']))
+             print(" Left: " + str(instance['BoundingBox']['Left']))
+             print(" Width: " + str(instance['BoundingBox']['Width']))
+             print(" Height: " + str(instance['BoundingBox']['Height']))
+             print(" Confidence: " + str(instance['Confidence']))
+             print()
+
+         print("Parents:")
+         for parent in label['Parents']:
+            print(" " + parent['Name'])
+
+        #  print("Aliases:")
+        #  for alias in label['Aliases']:
+        #      print(" " + alias['Name'])
+
+        #  print("Categories:")
+        #  for category in label['Categories']:
+        #      print(" " + category['Name'])
+        #      print("----------")
+        #      print()
+
+     if "ImageProperties" in str(response):
+         print("Background:")
+         print(response["ImageProperties"]["Background"])
+         print()
+         print("Foreground:")
+         print(response["ImageProperties"]["Foreground"])
+         print()
+         print("Quality:")
+         print(response["ImageProperties"]["Quality"])
+         print()
+
+     return labels
+
+# def main():
+#     photo = 'photo-name'
+#     bucket = 'bucket-name'
+#     label_count = detect_labels(photo, bucket)
+#     print("Labels detected: " + str(label_count))
+
+# if __name__ == "__main__":
+#     main()
