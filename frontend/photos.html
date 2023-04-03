@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>
+            Voice to Photo
+        </title>
+
+        <!-- api gateway generated sdk -->
+        <script src="./assets/js/sdk/lib/axios/dist/axios.standalone.js"></script>
+        <script src="./assets/js/sdk/lib/CryptoJS/rollups/hmac-sha256.js"></script>
+        <script src="./assets/js/sdk/lib/CryptoJS/rollups/sha256.js"></script>
+        <script src="./assets/js/sdk/lib/CryptoJS/components/hmac.js"></script>
+        <script src="./assets/js/sdk/lib/CryptoJS/components/enc-base64.js"></script>
+        <script src="./assets/js/sdk/lib/url-template/url-template.js"></script>
+        <script src="./assets/js/sdk/lib/apiGatewayCore/sigV4Client.js"></script>
+        <script src="./assets/js/sdk/lib/apiGatewayCore/apiGatewayClient.js"></script>
+        <script src="./assets/js/sdk/lib/apiGatewayCore/simpleHttpClient.js"></script>
+        <script src="./assets/js/sdk/lib/apiGatewayCore/utils.js"></script>
+
+        <script src="./assets/js/sdk/apigClient.js"></script>
+    </head>
+    <body>
+        <h1>
+            Voice to Photo App
+        </h1>
+        <h2>
+            Use the the voice recognition tool to ask for photos <br><br>
+            Example: "Show me a photo of dogs and cats"
+        </h2>
+        <h4 id="status">Press the button below, and start speaking</h4>
+        <button onclick="startRecognition()">Speech to text</button>
+        <div id="result" class="hide"></div><br><br>
+        <div id="photos"> </div>
+
+        <h2>Use this button to upload photos to the album</h2>
+        <!-- Copy the 'url' value returned by S3Client.generate_presigned_post() -->
+        <form id="myForm">
+            <!-- Copy the 'fields' key:values returned by S3Client.generate_presigned_post() -->
+        File:
+            <input type="file"   name="file" id="inpFile" /> <br />
+            <input type="submit" name="submit" value="Upload to Amazon S3" />
+        </form>
+        <script>
+            const myForm = document.getElementById('myForm');
+            const inpFile = document.getElementById('inpFile');
+
+            myForm.addEventListener("submit", e =>{
+                e.preventDefault();
+                var photo = inpFile.files[0]
+                // const formData = new FormData();
+                // var reader = new FileReader();
+                // reader.onloadend = function() {
+                //     // console.log('Encoded Base 64 File String:', reader.result);
+                    
+                //     /******************* for Binary ***********************/
+                //     var data=(reader.result).split(',')[1];
+                //     var binaryBlob = atob(data);
+                //     // console.log('Encoded Binary File String:', binaryBlob);
+                // }
+                // reader.readAsDataURL(photo);
+
+
+                photo = utf8_to_b64(photo)
+                // formData.append("inpFile",  photo)
+                uploadPhoto("photo", photo)
+            });
+            function utf8_to_b64(str) {
+                return window.btoa(unescape(encodeURIComponent(str)));
+            }
+        </script>
+
+        <script> 
+            var sdk = apigClientFactory.newClient({
+                apiKey: 'rfiXA1rRi01efZIA5gO8BacKJMPlOnr91zWtZ2X6'
+            });
+        </script>      
+
+        <script src="./assets/js/photos.js"></script>
+        <script src="./assets/js/upload.js"></script>
+        <script src="./assets/js/uuid.js"></script>
+
+
+    </body>
+</html>
